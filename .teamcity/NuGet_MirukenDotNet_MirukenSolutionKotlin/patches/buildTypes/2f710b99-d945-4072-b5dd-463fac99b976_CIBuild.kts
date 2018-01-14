@@ -11,5 +11,6 @@ accordingly and delete the patch script.
 changeBuildType("2f710b99-d945-4072-b5dd-463fac99b976_CIBuild") {
     vcs {
         remove("NuGet_MirukenDotNet_MirukenSolutionKotlin_CodeVCSRoot")
+        add("NuGet_MirukenDotNet_MirukenSolutionKotlin_Foo")
     }
 }
