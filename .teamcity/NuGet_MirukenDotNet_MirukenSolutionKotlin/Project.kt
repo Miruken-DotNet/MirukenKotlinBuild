@@ -16,7 +16,6 @@ class NugetSolution(
         val id:             String,
         val parentId:       String,
         val name:           String,
-        val description:    String,
         val solutionFile:   String,
         val testAssemblies: String,
         val githubUrl:      String,
@@ -40,7 +39,6 @@ class NugetSolution(
 
 class NugetProject(
     val id:          String,
-    val projectFile: String,
     val nuspecFile:  String,
     val packageName: String)
 
@@ -183,7 +181,7 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
         id          = solution.id
         parentId    = solution.parentId
         name        = solution.name
-        description = solution.description
+        description = "CI/CD for ${solution.solutionFile}"
 
         vcsRoot(vcsRoot)
 
