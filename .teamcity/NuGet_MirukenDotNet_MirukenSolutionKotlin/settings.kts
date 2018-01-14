@@ -28,5 +28,5 @@ project(configureNugetSolutionProject(NugetSolution(
                 NugetProject(
                         id          = "MirukenValidateCastle",
                         packageName = "Miruken.Validate.Castle",
-                        nuspecFile  =  "Source\\Miruken.Valiate.Castle\\Miruken.Validate.Castle.nuspec")
+                        nuspecFile  =  "Source\\Miruken.Validate.Castle\\Miruken.Validate.Castle.nuspec")
 ))))
