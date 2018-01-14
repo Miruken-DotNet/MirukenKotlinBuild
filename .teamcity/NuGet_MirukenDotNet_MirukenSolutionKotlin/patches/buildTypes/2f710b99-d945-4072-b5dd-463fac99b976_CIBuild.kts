@@ -1,6 +1,8 @@
 package NuGet_MirukenDotNet_MirukenSolutionKotlin.patches.buildTypes
 
 import jetbrains.buildServer.configs.kotlin.v2017_2.*
+import jetbrains.buildServer.configs.kotlin.v2017_2.triggers.VcsTrigger
+import jetbrains.buildServer.configs.kotlin.v2017_2.triggers.vcs
 import jetbrains.buildServer.configs.kotlin.v2017_2.ui.*
 
 /*
@@ -12,5 +14,17 @@ changeBuildType("2f710b99-d945-4072-b5dd-463fac99b976_CIBuild") {
     vcs {
         remove("NuGet_MirukenDotNet_MirukenSolutionKotlin_CodeVCSRoot")
         add("NuGet_MirukenDotNet_MirukenSolutionKotlin_Foo")
+    }
+
+    triggers {
+        remove {
+            vcs {
+                id = "NuGet_MirukenDotNet_MirukenSolutionKotlin_ci_vcsTrigger"
+                quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
+                perCheckinTriggering = true
+                groupCheckinsByCommitter = true
+                enableQueueOptimization = false
+            }
+        }
     }
 }
