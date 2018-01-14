@@ -1,6 +1,5 @@
 package NuGet_MirukenDotNet_MirukenSolutionKotlin
 
-import NuGet_MirukenDotNet_MirukenSolutionKotlin.vcsRoots.NuGet_MirukenDotNet_MirukenSolutionKotlin_MirukenKotlinBuildGit
 import jetbrains.buildServer.configs.kotlin.v2017_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2017_2.Project
 import jetbrains.buildServer.configs.kotlin.v2017_2.projectFeatures.VersionedSettings
@@ -18,11 +17,15 @@ class NugetSolution(
         val name:           String,
         val solutionFile:   String,
         val testAssemblies: String,
-        val githubUrl:      String,
+        val codeGithubUrl:  String,
+        val buildGithubUrl: String,
         val nugetProjects:  List<NugetProject>){
 
-    val vcsRootId: String
-        get() = "${id}_VCSRoot"
+    val buildVcsRootId: String
+        get() = "${id}_BuildVCSRoot"
+
+    val codeVcsRootId: String
+        get() = "${id}_CodeVCSRoot"
 
     val ciBuildId: String
         get() = "${id}_CIBuild"
@@ -45,14 +48,27 @@ class NugetProject(
 
 fun configureNugetSolutionProject(solution: NugetSolution) : Project{
 
-    val vcsRoot = GitVcsRoot({
-        uuid             = "${solution.guid}vcsRoot"
-        id               = "${solution.vcsRootId}"
-        name             = "${solution.githubUrl}"
-        url              = "${solution.githubUrl}"
+    val codeVcsRoot = GitVcsRoot({
+        uuid             = "${solution.guid}CodeVcsRoot"
+        id               = solution.codeVcsRootId
+        name             = solution.codeGithubUrl
+        url              = solution.codeGithubUrl
         branch           = "%DefaultBranch%"
         branchSpec       = "%BranchSpecification%"
         agentCleanPolicy = GitVcsRoot.AgentCleanPolicy.ALWAYS
+        authMethod = uploadedKey {
+            uploadedKey = "provenstyle"
+        }
+    })
+
+    val buildVcsRoot = GitVcsRoot({
+        uuid = "${solution.guid}BuildVcsRoot"
+        id   = solution.buildVcsRootId
+        name = solution.buildGithubUrl
+        url  = solution.buildGithubUrl
+        authMethod = uploadedKey {
+            uploadedKey = "provenstyle"
+        }
     })
 
     val ciBuild =  BuildType({
@@ -74,7 +90,7 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
         }
 
         vcs {
-            root(vcsRoot)
+            root(codeVcsRoot)
             cleanCheckout = true
         }
 
@@ -102,7 +118,7 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
     val preReleaseBuild =  BuildType({
         template    = "StandardNuGetBuildTemplate"
         uuid        = "${solution.guid}_PreReleaseBuild"
-        id          = "${solution.preReleaseBuildId}"
+        id          = solution.preReleaseBuildId
         name        = "PreRelease Build"
         description = "This will push a NuGet package with a -PreRelease tag for testing from the develop branch. NO CI.   (Note: Non-prerelease nuget packages come from the master branch)"
 
@@ -118,7 +134,7 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
         }
 
         vcs {
-            root(vcsRoot)
+            root(codeVcsRoot)
             cleanCheckout = true
         }
 
@@ -136,7 +152,7 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
     val releaseBuild = BuildType({
         template    = "StandardNuGetBuildTemplate"
         uuid        = "${solution.guid}_ReleaseBuild"
-        id          = "${solution.releaseBuildId}"
+        id          = solution.releaseBuildId
         name        = "Release Build"
         description = "This will push a NuGet package from the MASTER branch. NO CI."
 
@@ -151,7 +167,7 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
         }
 
         vcs {
-            root(vcsRoot)
+            root(codeVcsRoot)
             cleanCheckout = true
             checkoutMode = CheckoutMode.ON_AGENT
         }
@@ -161,8 +177,8 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
 
     val deploymentProject = Project({
         uuid     = "${solution.guid}_DeploymentProject"
-        id       = "${solution.deploymentProjectId}"
-        parentId = "${solution.id}"
+        id       = solution.deploymentProjectId
+        parentId = solution.id
         name = "Deployment"
 
         params {
@@ -183,7 +199,8 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
         name        = solution.name
         description = "CI/CD for ${solution.solutionFile}"
 
-        vcsRoot(vcsRoot)
+        vcsRoot(codeVcsRoot)
+        vcsRoot(buildVcsRoot)
 
         buildType(ciBuild)
         buildType(preReleaseBuild)
@@ -203,21 +220,21 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
             param("MajorVersion",        "1")
             param("MinorVersion",        "11")
             param("PatchVersion",        "18")
-            param("PreReleaseProjectId", "${solution.preReleaseBuildId}")
-            param("ReleaseProjectId",    "${solution.releaseBuildId}")
-            param("Solution",            "${solution.solutionFile}")
-            param("SolutionProjectId",   "${solution.id}")
-            param("TestAssemblies",      "${solution.testAssemblies}")
+            param("PreReleaseProjectId", solution.preReleaseBuildId)
+            param("ReleaseProjectId",    solution.releaseBuildId)
+            param("Solution",            solution.solutionFile)
+            param("SolutionProjectId",   solution.id)
+            param("TestAssemblies",      solution.testAssemblies)
         }
 
         features {
             versionedSettings {
-                id = "${solution.id}_versionedSettings"
-                mode = VersionedSettings.Mode.ENABLED
-                buildSettingsMode = VersionedSettings.BuildSettingsMode.PREFER_SETTINGS_FROM_VCS
-                rootExtId = NuGet_MirukenDotNet_MirukenSolutionKotlin_MirukenKotlinBuildGit.id
-                showChanges = false
-                settingsFormat = VersionedSettings.Format.KOTLIN
+                id                            = "${solution.id}_versionedSettings"
+                mode                          = VersionedSettings.Mode.ENABLED
+                buildSettingsMode             = VersionedSettings.BuildSettingsMode.PREFER_SETTINGS_FROM_VCS
+                rootExtId                     = buildVcsRoot.id
+                showChanges                   = false
+                settingsFormat                = VersionedSettings.Format.KOTLIN
                 storeSecureParamsOutsideOfVcs = true
             }
         }
@@ -313,18 +330,18 @@ fun configureNugetDeployProject (
     })
 
     return Project({
-        uuid        = "$baseUuid"
-        id          = "$baseId"
-        parentId    = "${solution.deploymentProjectId}"
-        name        = "${project.packageName}"
+        uuid        = baseUuid
+        id          = baseId
+        parentId    = solution.deploymentProjectId
+        name        = project.packageName
         description = "${project.packageName} nuget package"
 
         buildType(deployPreRelease)
         buildType(deployRelease)
 
         params {
-            param("NuGetPackSpecFiles", "${project.nuspecFile}")
-            param("PackageName", "${project.packageName}")
+            param("NuGetPackSpecFiles", project.nuspecFile)
+            param("PackageName", project.packageName)
         }
         buildTypesOrder = arrayListOf(deployPreRelease, deployRelease)
     })

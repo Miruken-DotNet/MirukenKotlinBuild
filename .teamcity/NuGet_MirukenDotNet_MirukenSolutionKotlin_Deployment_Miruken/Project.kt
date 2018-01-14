@@ -1,6 +1,0 @@
-package NuGet_MirukenDotNet_MirukenSolutionKotlin_Deployment_Miruken
-
-import NuGet_MirukenDotNet_MirukenSolutionKotlin_Deployment_Miruken.buildTypes.*
-import jetbrains.buildServer.configs.kotlin.v2017_2.*
-import jetbrains.buildServer.configs.kotlin.v2017_2.Project
-

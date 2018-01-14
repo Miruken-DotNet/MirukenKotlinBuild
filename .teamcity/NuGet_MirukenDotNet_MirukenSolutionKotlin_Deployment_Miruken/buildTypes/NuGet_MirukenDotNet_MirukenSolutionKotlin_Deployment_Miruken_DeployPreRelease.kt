@@ -1,6 +1,0 @@
-package NuGet_MirukenDotNet_MirukenSolutionKotlin_Deployment_Miruken.buildTypes
-
-import NuGet_MirukenDotNet_MirukenSolutionKotlin.buildTypes.NuGet_MirukenDotNet_MirukenSolutionKotlin_PreReleaseBuild
-import jetbrains.buildServer.configs.kotlin.v2017_2.*
-import jetbrains.buildServer.configs.kotlin.v2017_2.triggers.finishBuildTrigger
-

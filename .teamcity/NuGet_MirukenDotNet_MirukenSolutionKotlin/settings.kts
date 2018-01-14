@@ -8,7 +8,8 @@ project(configureNugetSolutionProject(NugetSolution(
         parentId       = "NuGet_MirukenDotNet",
         id             = "NuGet_MirukenDotNet_MirukenSolutionKotlin",
         name           = "Miruken Solution",
-        githubUrl      = "git@github.com:Miruken-DotNet/Miruken.git",
+        codeGithubUrl  = "git@github.com:Miruken-DotNet/Miruken.git",
+        buildGithubUrl = "git@github.com:Miruken-DotNet/MirukenKotlinBuild.git",
         solutionFile   = "Miruken.sln",
         testAssemblies = "**\\bin\\*Test*.dll",
         nugetProjects = listOf(
