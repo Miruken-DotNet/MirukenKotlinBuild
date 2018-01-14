@@ -1,60 +1,334 @@
 package NuGet_MirukenDotNet_MirukenSolutionKotlin
 
-import NuGet_MirukenDotNet_MirukenSolutionKotlin.buildTypes.*
-import NuGet_MirukenDotNet_MirukenSolutionKotlin.vcsRoots.*
 import NuGet_MirukenDotNet_MirukenSolutionKotlin.vcsRoots.NuGet_MirukenDotNet_MirukenSolutionKotlin_MirukenKotlinBuildGit
-import jetbrains.buildServer.configs.kotlin.v2017_2.*
+import jetbrains.buildServer.configs.kotlin.v2017_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2017_2.Project
 import jetbrains.buildServer.configs.kotlin.v2017_2.projectFeatures.VersionedSettings
 import jetbrains.buildServer.configs.kotlin.v2017_2.projectFeatures.versionedSettings
+import jetbrains.buildServer.configs.kotlin.v2017_2.vcs.GitVcsRoot
+import jetbrains.buildServer.configs.kotlin.v2017_2.triggers.VcsTrigger
+import jetbrains.buildServer.configs.kotlin.v2017_2.triggers.vcs
+import jetbrains.buildServer.configs.kotlin.v2017_2.*
+import jetbrains.buildServer.configs.kotlin.v2017_2.triggers.finishBuildTrigger
 
-object Project : Project({
-    uuid = "a27246ea-2f2d-483a-bfd4-8ea6d22b2239"
-    id = "NuGet_MirukenDotNet_MirukenSolutionKotlin"
-    parentId = "NuGet_MirukenDotNet"
-    name = "Miruken Solution Kotlin"
-    description = "Core Miruken-DotNet"
+class NugetSolution(
+        val guid:           String,
+        val id:             String,
+        val parentId:       String,
+        val name:           String,
+        val description:    String,
+        val solutionFile:   String,
+        val testAssemblies: String,
+        val githubUrl:      String,
+        val nugetProjects:  List<NugetProject>){
 
-    vcsRoot(NuGet_MirukenDotNet_MirukenSolutionKotlin_MirukenKotlinBuildGit)
-    vcsRoot(NuGet_MirukenDotNet_MirukenSolutionKotlin_MirukenGitMiruken)
-    vcsRoot(NuGet_MirukenDotNet_MirukenSolutionKotlin_HttpsGithubComMirukenDotNetMirukenGitC)
+    val vcsRootId: String
+        get() = "${id}_VCSRoot"
 
-    buildType(NuGet_MirukenDotNet_MirukenSolutionKotlin_CiBuild)
-    buildType(NuGet_MirukenDotNet_MirukenSolutionKotlin_PreReleaseBuild)
-    buildType(NuGet_MirukenDotNet_MirukenSolutionKotlin_ReleaseBuild)
+    val ciBuildId: String
+        get() = "${id}_CIBuild"
 
-    params {
-        param("ArtifactsIn", """
+    val preReleaseBuildId: String
+        get() = "${id}_PreReleaseBuild"
+
+    val releaseBuildId: String
+        get() = "${id}_ReleaseBuild"
+
+    val deploymentProjectId: String
+        get() = "${id}_DeploymentProject"
+}
+
+class NugetProject(
+    val id:          String,
+    val projectFile: String,
+    val nuspecFile:  String,
+    val packageName: String)
+
+
+fun configureNugetSolutionProject(solution: NugetSolution) : Project{
+
+    val vcsRoot = GitVcsRoot({
+        uuid             = "${solution.guid}vcsRoot"
+        id               = "${solution.vcsRootId}"
+        name             = "${solution.githubUrl}"
+        url              = "${solution.githubUrl}"
+        branch           = "%DefaultBranch%"
+        branchSpec       = "%BranchSpecification%"
+        agentCleanPolicy = GitVcsRoot.AgentCleanPolicy.ALWAYS
+    })
+
+    val ciBuild =  BuildType({
+        template    = "StandardNuGetBuildTemplate"
+        uuid        = "${solution.guid}_CIBuild"
+        id          = solution.ciBuildId
+        name        = "CI Build"
+        description = "Watches git repo & creates a build for any change to any branch. Runs tests. Does NOT package/deploy NuGet packages!"
+
+        buildNumberPattern = "%BuildFormatSpecification%"
+
+        params {
+            param("BranchSpecification", "+:refs/heads/(*)")
+            param("MajorVersion", "0")
+            param("MinorVersion", "0")
+            param("PatchVersion", "0")
+            param("PdbFilesForSymbols", "")
+            param("PrereleaseVersion", "-CI.%build.counter%")
+        }
+
+        vcs {
+            root(vcsRoot)
+            cleanCheckout = true
+        }
+
+        triggers {
+            vcs {
+                id = "${solution.id}_ci_vcsTrigger"
+                quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
+                perCheckinTriggering = true
+                groupCheckinsByCommitter = true
+                enableQueueOptimization = false
+            }
+        }
+
+        features {
+            feature {
+                id = "symbol-indexer"
+                type = "symbol-indexer"
+                enabled = false
+            }
+        }
+
+        disableSettings("RUNNER_21", "RUNNER_22", "RUNNER_4", "RUNNER_5", "RUNNER_6", "RUNNER_8")
+    })
+
+    val preReleaseBuild =  BuildType({
+        template    = "StandardNuGetBuildTemplate"
+        uuid        = "${solution.guid}_PreReleaseBuild"
+        id          = "${solution.preReleaseBuildId}"
+        name        = "PreRelease Build"
+        description = "This will push a NuGet package with a -PreRelease tag for testing from the develop branch. NO CI.   (Note: Non-prerelease nuget packages come from the master branch)"
+
+        artifactRules = "%ArtifactsIn%"
+        buildNumberPattern = "%BuildFormatSpecification%"
+
+        params {
+            param("BranchSpecification", """
+            +:refs/heads/(develop)
+            +:refs/heads/(feature/*)
+        """.trimIndent())
+            param("BuildConfiguration", "Debug")
+        }
+
+        vcs {
+            root(vcsRoot)
+            cleanCheckout = true
+        }
+
+        features {
+            feature {
+                id = "${solution.id}_symbol-indexer"
+                type = "symbol-indexer"
+            }
+        }
+
+        disableSettings("RUNNER_21", "RUNNER_22", "RUNNER_4", "RUNNER_5", "RUNNER_6", "RUNNER_8")
+    })
+
+
+    val releaseBuild = BuildType({
+        template    = "StandardNuGetBuildTemplate"
+        uuid        = "${solution.guid}_ReleaseBuild"
+        id          = "${solution.releaseBuildId}"
+        name        = "Release Build"
+        description = "This will push a NuGet package from the MASTER branch. NO CI."
+
+        artifactRules = "%ArtifactsIn%"
+        buildNumberPattern = "%BuildFormatSpecification%"
+
+        params {
+            param("BranchSpecification", "+:refs/heads/(master)")
+            param("DefaultBranch", "master")
+            param("NuGetPackPrereleaseVersionString", "")
+            param("PrereleaseVersion", "")
+        }
+
+        vcs {
+            root(vcsRoot)
+            cleanCheckout = true
+            checkoutMode = CheckoutMode.ON_AGENT
+        }
+
+        disableSettings("RUNNER_4", "RUNNER_5", "RUNNER_6", "RUNNER_8")
+    })
+
+    val deploymentProject = Project({
+        uuid     = "${solution.guid}_DeploymentProject"
+        id       = "${solution.deploymentProjectId}"
+        parentId = "${solution.id}"
+        name = "Deployment"
+
+        params {
+            param("SHA", "")
+        }
+
+        for(nugetProject in solution.nugetProjects){
+            subProject(configureNugetDeployProject(solution, nugetProject, preReleaseBuild, releaseBuild))
+        }
+
+        subProjectsOrder = arrayListOf("NuGet_MirukenDotNet_MirukenSolutionKotlin_Deployment_Miruken", "NuGet_MirukenDotNet_MirukenSolutionKotlin_Deployment_MirukenCastle", "NuGet_MirukenDotNet_MirukenSolutionKotlin_Deployment_MirukenValidate", "NuGet_MirukenDotNet_MirukenSolutionKotlin_Deployment_MirukenValidateCastle")
+    })
+
+    return Project({
+        uuid        = solution.guid
+        id          = solution.id
+        parentId    = solution.parentId
+        name        = solution.name
+        description = solution.description
+
+        vcsRoot(vcsRoot)
+
+        buildType(ciBuild)
+        buildType(preReleaseBuild)
+        buildType(releaseBuild)
+
+        params {
+            param("ArtifactsIn", """
             Source      => Build.zip!/Source
             packages    => Build.zip!/packages
-            Miruken.sln => Build.zip!
+            ${solution.solutionFile} => Build.zip!
         """.trimIndent())
-        param("ArtifactsOut", """
+            param("ArtifactsOut", """
             Build.zip!/Source   => Source
             Build.zip!/packages => packages
-            Build.zip!/Miruken.sln
+            Build.zip!/${solution.solutionFile}
         """.trimIndent())
-        param("MajorVersion", "1")
-        param("MinorVersion", "11")
-        param("PatchVersion", "18")
-        param("PreReleaseProjectId", "NuGet_MirukenDotNet_MirukenSolution_PreReleaseBuild")
-        param("ReleaseProjectId", "NuGet_MirukenDotNet_MirukenSolution_ReleaseBuild")
-        param("Solution", "Miruken.sln")
-        param("SolutionProjectId", "NuGet_MirukenDotNet_MirukenSolution")
-        param("TestAssemblies", """**\bin\*Test*.dll""")
-    }
-
-    features {
-        versionedSettings {
-            id = "PROJECT_EXT_2"
-            mode = VersionedSettings.Mode.ENABLED
-            buildSettingsMode = VersionedSettings.BuildSettingsMode.PREFER_SETTINGS_FROM_VCS
-            rootExtId = NuGet_MirukenDotNet_MirukenSolutionKotlin_MirukenKotlinBuildGit.id
-            showChanges = false
-            settingsFormat = VersionedSettings.Format.KOTLIN
-            storeSecureParamsOutsideOfVcs = true
+            param("MajorVersion",        "1")
+            param("MinorVersion",        "11")
+            param("PatchVersion",        "18")
+            param("PreReleaseProjectId", "${solution.preReleaseBuildId}")
+            param("ReleaseProjectId",    "${solution.releaseBuildId}")
+            param("Solution",            "${solution.solutionFile}")
+            param("SolutionProjectId",   "${solution.id}")
+            param("TestAssemblies",      "${solution.testAssemblies}")
         }
-    }
-    buildTypesOrder = arrayListOf(NuGet_MirukenDotNet_MirukenSolutionKotlin.buildTypes.NuGet_MirukenDotNet_MirukenSolutionKotlin_CiBuild, NuGet_MirukenDotNet_MirukenSolutionKotlin.buildTypes.NuGet_MirukenDotNet_MirukenSolutionKotlin_PreReleaseBuild, NuGet_MirukenDotNet_MirukenSolutionKotlin.buildTypes.NuGet_MirukenDotNet_MirukenSolutionKotlin_ReleaseBuild)
-    subProjectsOrder = arrayListOf("NuGet_MirukenDotNet_MirukenSolutionKotlin_Deployment")
-})
+
+        features {
+            versionedSettings {
+                id = "${solution.id}_versionedSettings"
+                mode = VersionedSettings.Mode.ENABLED
+                buildSettingsMode = VersionedSettings.BuildSettingsMode.PREFER_SETTINGS_FROM_VCS
+                rootExtId = NuGet_MirukenDotNet_MirukenSolutionKotlin_MirukenKotlinBuildGit.id
+                showChanges = false
+                settingsFormat = VersionedSettings.Format.KOTLIN
+                storeSecureParamsOutsideOfVcs = true
+            }
+        }
+        buildTypesOrder = arrayListOf(ciBuild, preReleaseBuild, releaseBuild)
+        subProjectsOrder = arrayListOf(deploymentProject.id)
+
+        subProject(deploymentProject)
+    })
+}
+
+fun configureNugetDeployProject (
+        solution: NugetSolution,
+        project: NugetProject,
+        preReleaseBuild: BuildType,
+        releaseBuild: BuildType) : Project{
+
+    val baseUuid = "${solution.guid}_${project.id}"
+    val baseId   = "${solution.id}_${project.id}"
+
+    val deployPreRelease =  BuildType({
+        template           = "StandardNuGetBuildTemplate"
+        uuid               = "${baseUuid}_DeployPreRelease"
+        id                 = "${baseId}_DeployPreRelease"
+        name               = "Deploy PreRelease"
+        description        = "This will push a NuGet package with a -PreRelease tag for testing from the develop branch. NO CI.   (Note: Non-prerelease nuget packages come from the master branch)"
+        buildNumberPattern = "%BuildFormatSpecification%"
+
+        params {
+            param("BuildFormatSpecification", "%dep.${solution.preReleaseBuildId}.BuildFormatSpecification%")
+            param("PackageVersion", "%dep.${solution.preReleaseBuildId}.PackageVersion%")
+        }
+
+        triggers {
+            finishBuildTrigger {
+                id = "${baseId}_DeployPreRelease_TRIGGER"
+                buildTypeExtId = solution.preReleaseBuildId
+                successfulOnly = true
+                branchFilter = "+:*"
+            }
+        }
+
+        dependencies {
+            dependency(preReleaseBuild) {
+                snapshot {
+                }
+
+                artifacts {
+                    id = "${baseId}_PreRelease_ARTIFACT_DEPENDENCY"
+                    artifactRules = "%ArtifactsOut%"
+                }
+            }
+        }
+
+        disableSettings("JetBrains.AssemblyInfo", "RUNNER_1", "RUNNER_2", "RUNNER_21", "RUNNER_22", "RUNNER_3", "RUNNER_5", "RUNNER_6", "RUNNER_8")
+    })
+
+    val deployRelease = BuildType({
+        template     = "StandardNuGetBuildTemplate"
+        uuid         = "${baseUuid}_DeployRelease"
+        id           = "${baseId}_DeployRelease"
+        name         = "Deploy Release"
+        description  = "This will push a NuGet package from the MASTER branch. NO CI."
+
+        buildNumberPattern = "%BuildFormatSpecification%"
+
+        params {
+            param("BuildFormatSpecification", "%dep.${solution.releaseBuildId}.BuildFormatSpecification%")
+            param("PackageVersion", "%dep.${solution.releaseBuildId}.PackageVersion%")
+            param("PrereleaseVersion", "")
+        }
+
+        triggers {
+            finishBuildTrigger {
+                id = "${baseId}_Release_TRIGGER"
+                buildTypeExtId = solution.releaseBuildId
+                branchFilter = "+:master"
+            }
+        }
+
+        dependencies {
+            dependency(releaseBuild){
+                snapshot {
+                }
+
+                artifacts {
+                    id = "${baseId}_Release_ARTIFACT_DEPENDENCY"
+                    artifactRules = "%ArtifactsOut%"
+                }
+            }
+        }
+
+        disableSettings("JetBrains.AssemblyInfo", "RUNNER_1", "RUNNER_2", "RUNNER_21", "RUNNER_22", "RUNNER_3", "RUNNER_4", "RUNNER_5", "RUNNER_8")
+    })
+
+    return Project({
+        uuid        = "$baseUuid"
+        id          = "$baseId"
+        parentId    = "${solution.deploymentProjectId}"
+        name        = "${project.packageName}"
+        description = "${project.packageName} nuget package"
+
+        buildType(deployPreRelease)
+        buildType(deployRelease)
+
+        params {
+            param("NuGetPackSpecFiles", "${project.nuspecFile}")
+            param("PackageName", "${project.packageName}")
+        }
+        buildTypesOrder = arrayListOf(deployPreRelease, deployRelease)
+    })
+}
+
