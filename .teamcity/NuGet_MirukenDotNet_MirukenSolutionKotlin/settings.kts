@@ -9,7 +9,7 @@ project(configureNugetSolutionProject(NugetSolution(
         id             = "NuGet_MirukenDotNet_MirukenSolutionKotlin",
         name           = "Miruken Solution Kotlin",
         codeGithubUrl  = "git@github.com:Miruken-DotNet/Miruken.git",
-        buildGithubUrl = "git@github.com:Miruken-DotNet/MirukenKotlinBuild.git",
+        teamCityGithubUrl = "git@github.com:Miruken-DotNet/MirukenKotlinBuild.git",
         solutionFile   = "Miruken.sln",
         testAssemblies = "**\\bin\\*Test*.dll",
         nugetProjects = listOf(

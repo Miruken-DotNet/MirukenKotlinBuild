@@ -18,14 +18,17 @@ class NugetSolution(
         val solutionFile:   String,
         val testAssemblies: String,
         val codeGithubUrl:  String,
-        val buildGithubUrl: String,
+        val teamCityGithubUrl: String,
         val nugetProjects:  List<NugetProject>){
 
-    val buildVcsRootId: String
-        get() = "${id}_BuildVCSRoot"
+    val ciVcsRootId: String
+        get() = "${id}_CIVCSRoot"
 
-    val codeVcsRootId: String
-        get() = "${id}_CodeVCSRoot"
+    val releaseVcsRootId: String
+        get() = "${id}_ReleaseVCSRoot"
+
+    val teamCityVcsRootId: String
+        get() = "${id}_TeamCityVCSRoot"
 
     val ciBuildId: String
         get() = "${id}_CIBuild"
@@ -48,10 +51,10 @@ class NugetProject(
 
 fun configureNugetSolutionProject(solution: NugetSolution) : Project{
 
-    val codeVcsRoot = GitVcsRoot({
-        uuid             = "${solution.guid}CodeVcsRoot"
-        id               = solution.codeVcsRootId
-        name             = solution.codeGithubUrl
+    val ciVcsRoot = GitVcsRoot({
+        uuid             = "${solution.guid}CIVcsRoot"
+        id               = solution.ciVcsRootId
+        name             = "${solution.codeGithubUrl}_CI"
         url              = solution.codeGithubUrl
         branch           = "%DefaultBranch%"
         branchSpec       = "%BranchSpecification%"
@@ -61,11 +64,24 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
         }
     })
 
-    val buildVcsRoot = GitVcsRoot({
-        uuid = "${solution.guid}BuildVcsRoot"
-        id   = solution.buildVcsRootId
-        name = solution.buildGithubUrl
-        url  = solution.buildGithubUrl
+    val releaseVcsRoot = GitVcsRoot({
+        uuid             = "${solution.guid}ReleaseVcsRoot"
+        id               = solution.releaseVcsRootId
+        name             = "${solution.codeGithubUrl}_Release"
+        url              = solution.codeGithubUrl
+        branch           = "%DefaultBranch%"
+        branchSpec       = "%BranchSpecification%"
+        agentCleanPolicy = GitVcsRoot.AgentCleanPolicy.ALWAYS
+        authMethod = uploadedKey {
+            uploadedKey = "provenstyle"
+        }
+    })
+
+    val teamCityVcsRoot = GitVcsRoot({
+        uuid = "${solution.guid}TeamCityVcsRoot"
+        id   = solution.teamCityVcsRootId
+        name = "${solution.teamCityGithubUrl}_TeamCity"
+        url  = solution.teamCityGithubUrl
         authMethod = uploadedKey {
             uploadedKey = "provenstyle"
         }
@@ -90,7 +106,7 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
         }
 
         vcs {
-            root(codeVcsRoot)
+            root(ciVcsRoot)
             cleanCheckout = true
         }
 
@@ -134,7 +150,7 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
         }
 
         vcs {
-            root(codeVcsRoot)
+            root(releaseVcsRoot)
             cleanCheckout = true
         }
 
@@ -167,7 +183,7 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
         }
 
         vcs {
-            root(codeVcsRoot)
+            root(releaseVcsRoot)
             cleanCheckout = true
             checkoutMode = CheckoutMode.ON_AGENT
         }
@@ -199,8 +215,9 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
         name        = solution.name
         description = "CI/CD for ${solution.solutionFile}"
 
-        vcsRoot(codeVcsRoot)
-        vcsRoot(buildVcsRoot)
+        vcsRoot(ciVcsRoot)
+        vcsRoot(releaseVcsRoot)
+        vcsRoot(teamCityVcsRoot)
 
         buildType(ciBuild)
         buildType(preReleaseBuild)
@@ -232,7 +249,7 @@ fun configureNugetSolutionProject(solution: NugetSolution) : Project{
                 id                            = "${solution.id}_versionedSettings"
                 mode                          = VersionedSettings.Mode.ENABLED
                 buildSettingsMode             = VersionedSettings.BuildSettingsMode.PREFER_SETTINGS_FROM_VCS
-                rootExtId                     = buildVcsRoot.id
+                rootExtId                     = teamCityVcsRoot.id
                 showChanges                   = false
                 settingsFormat                = VersionedSettings.Format.KOTLIN
                 storeSecureParamsOutsideOfVcs = true
