@@ -5,8 +5,8 @@ import jetbrains.buildServer.configs.kotlin.v2017_2.*
 version = "2017.2"
 project(configureNugetSolutionProject(NugetSolution(
         guid           = "2f710b99-d945-4072-b5dd-463fac99b976",
-        parentId       = "NuGet_MirukenDotNet",
-        id             = "NuGet_MirukenDotNet_MirukenSolutionKotlin",
+        parentId       = "NuGet_Kotlin",
+        id             = "NuGet_Kotilin_MirukenDotNet_MirukenSolution",
         name           = "Miruken Solution Kotlin",
         codeGithubUrl  = "git@github.com:Miruken-DotNet/Miruken.git",
         teamCityGithubUrl = "git@github.com:Miruken-DotNet/MirukenKotlinBuild.git",
