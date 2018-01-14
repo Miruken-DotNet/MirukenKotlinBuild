@@ -7,7 +7,7 @@ project(configureNugetSolutionProject(NugetSolution(
         guid           = "2f710b99-d945-4072-b5dd-463fac99b976",
         parentId       = "NuGet_MirukenDotNet",
         id             = "NuGet_MirukenDotNet_MirukenSolutionKotlin",
-        name           = "Miruken Solution",
+        name           = "Miruken Solution Kotlin",
         codeGithubUrl  = "git@github.com:Miruken-DotNet/Miruken.git",
         buildGithubUrl = "git@github.com:Miruken-DotNet/MirukenKotlinBuild.git",
         solutionFile   = "Miruken.sln",
