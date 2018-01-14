@@ -27,4 +27,7 @@ changeBuildType("2f710b99-d945-4072-b5dd-463fac99b976_CIBuild") {
             }
         }
     }
+
+    expectDisabledSettings("RUNNER_21", "RUNNER_22", "RUNNER_4", "RUNNER_5", "RUNNER_6", "RUNNER_8", "symbol-indexer")
+    updateDisabledSettings("JetBrains.AssemblyInfo", "RUNNER_21", "RUNNER_22", "RUNNER_4", "RUNNER_5", "RUNNER_6", "RUNNER_8", "symbol-indexer")
 }
